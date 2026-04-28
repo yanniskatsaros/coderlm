@@ -23,10 +23,9 @@ from typing import Optional
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 TEMPLATE_PATH = SCRIPT_DIR / "templates" / "INSTRUCTIONS.md"
+PI_SKILL_TEMPLATE_PATH = SCRIPT_DIR / "templates" / "PI_SKILL.md"
+PI_PROMPT_TEMPLATE_PATH = SCRIPT_DIR / "templates" / "PI_PROMPT.md"
 CLI_SOURCE = SCRIPT_DIR / "skills" / "coderlm" / "scripts" / "coderlm_cli.py"
-
-CODEX_MARKER_START = "<!-- coderlm-start -->"
-CODEX_MARKER_END = "<!-- coderlm-end -->"
 
 
 @dataclass
@@ -37,6 +36,10 @@ class Platform:
     state_dir: str  # state directory for this platform
     format: str  # "markdown", "mdc", "append"
     mdc_frontmatter: Optional[str] = None  # for Cursor's .mdc format
+    skill_path: Optional[str] = None  # optional Pi/Agent Skills SKILL.md path
+    skill_cli_path: Optional[str] = None  # optional skill-local CLI copy path
+    prompt_path: Optional[str] = None  # optional prompt template path
+    append_marker: str = "coderlm"  # marker basename for append format
 
 
 PLATFORMS: dict[str, Platform] = {
@@ -102,6 +105,10 @@ PLATFORMS: dict[str, Platform] = {
         cli_path=".pi/coderlm/coderlm_cli.py",
         state_dir=".pi/coderlm/state",
         format="append",
+        skill_path=".pi/skills/coderlm/SKILL.md",
+        skill_cli_path=".pi/skills/coderlm/scripts/coderlm_cli.py",
+        prompt_path=".pi/prompts/coderlm.md",
+        append_marker="coderlm-pi",
     ),
     "opencode": Platform(
         name="OpenCode",
@@ -141,15 +148,17 @@ PLATFORMS: dict[str, Platform] = {
 }
 
 
-def load_template() -> str:
-    if not TEMPLATE_PATH.exists():
-        print(f"ERROR: Template not found: {TEMPLATE_PATH}", file=sys.stderr)
+def load_template(template_path: Path = TEMPLATE_PATH) -> str:
+    if not template_path.exists():
+        print(f"ERROR: Template not found: {template_path}", file=sys.stderr)
         sys.exit(1)
-    return TEMPLATE_PATH.read_text()
+    return template_path.read_text()
 
 
 def render_template(template: str, platform: Platform) -> str:
+    skill_cli_path = platform.skill_cli_path or platform.cli_path
     content = template.replace("{{CLI_PATH}}", platform.cli_path)
+    content = content.replace("{{SKILL_CLI_PATH}}", skill_cli_path)
     content = content.replace("{{STATE_DIR}}", platform.state_dir)
     content = content.replace("{{PLATFORM_NAME}}", platform.name)
     return content
@@ -168,13 +177,14 @@ def generate_platform(platform: Platform, project_root: Path, dry_run: bool) -> 
         _write_file(instruction_file, content, dry_run)
 
     elif platform.format == "append":
-        _append_with_markers(instruction_file, rendered, dry_run)
+        _append_with_markers(instruction_file, rendered, dry_run, platform.append_marker)
 
     else:  # markdown
         _write_file(instruction_file, rendered, dry_run)
 
     # Copy CLI script
     _copy_file(CLI_SOURCE, cli_dest, dry_run)
+    _generate_optional_resources(platform, project_root, dry_run)
 
     # Write env hint
     env_hint = (
@@ -184,6 +194,25 @@ def generate_platform(platform: Platform, project_root: Path, dry_run: bool) -> 
     print(f"  Note: {env_hint}")
 
 
+def _generate_optional_resources(
+    platform: Platform,
+    project_root: Path,
+    dry_run: bool,
+) -> None:
+    if platform.skill_path:
+        skill_template = load_template(PI_SKILL_TEMPLATE_PATH)
+        skill_content = render_template(skill_template, platform)
+        _write_file(project_root / platform.skill_path, skill_content, dry_run)
+
+    if platform.skill_cli_path:
+        _copy_file(CLI_SOURCE, project_root / platform.skill_cli_path, dry_run)
+
+    if platform.prompt_path:
+        prompt_template = load_template(PI_PROMPT_TEMPLATE_PATH)
+        prompt_content = render_template(prompt_template, platform)
+        _write_file(project_root / platform.prompt_path, prompt_content, dry_run)
+
+
 def clean_platform(platform: Platform, project_root: Path, dry_run: bool) -> None:
     instruction_file = project_root / platform.instruction_path
     cli_dest = project_root / platform.cli_path
@@ -191,16 +220,36 @@ def clean_platform(platform: Platform, project_root: Path, dry_run: bool) -> Non
     state_dir = project_root / platform.state_dir
 
     if platform.format == "append":
-        _remove_markers(instruction_file, dry_run)
+        _remove_markers(instruction_file, dry_run, platform.append_marker)
     else:
         _remove_file(instruction_file, dry_run)
 
     _remove_file(cli_dest, dry_run)
+    _clean_optional_resources(platform, project_root, dry_run)
 
     # Remove state dir if empty
     _remove_dir_if_empty(state_dir, dry_run)
     # Remove CLI parent dir if empty
     _remove_dir_if_empty(cli_dir, dry_run)
+
+
+def _clean_optional_resources(
+    platform: Platform,
+    project_root: Path,
+    dry_run: bool,
+) -> None:
+    extra_paths = [
+        platform.skill_cli_path,
+        platform.skill_path,
+        platform.prompt_path,
+    ]
+    for path_str in extra_paths:
+        if path_str:
+            _remove_file(project_root / path_str, dry_run)
+
+    for path_str in extra_paths:
+        if path_str:
+            _remove_empty_parents((project_root / path_str).parent, project_root, dry_run)
 
 
 # -- File operations --
@@ -227,20 +276,32 @@ def _copy_file(src: Path, dest: Path, dry_run: bool) -> None:
     print(f"  Copied {dest}")
 
 
-def _append_with_markers(path: Path, content: str, dry_run: bool) -> None:
-    block = f"\n{CODEX_MARKER_START}\n{content}\n{CODEX_MARKER_END}\n"
+def _append_marker_start(marker: str) -> str:
+    return f"<!-- {marker}-start -->"
+
+
+def _append_marker_end(marker: str) -> str:
+    return f"<!-- {marker}-end -->"
+
+
+def _append_with_markers(
+    path: Path,
+    content: str,
+    dry_run: bool,
+    marker: str,
+) -> None:
+    marker_start = _append_marker_start(marker)
+    marker_end = _append_marker_end(marker)
+    block = f"\n{marker_start}\n{content}\n{marker_end}\n"
 
     if path.exists():
         existing = path.read_text()
-        if CODEX_MARKER_START in existing:
+        if marker_start in existing:
             if dry_run:
                 print(f"  [dry-run] replace marked section in {path}")
                 return
-            # Replace existing block
-            start = existing.index(CODEX_MARKER_START)
-            end = existing.index(CODEX_MARKER_END) + len(CODEX_MARKER_END)
-            updated = existing[:start] + CODEX_MARKER_START + "\n" + content + "\n" + CODEX_MARKER_END + existing[end + len(CODEX_MARKER_END):]
-            # Simpler: just reconstruct
+            start = existing.index(marker_start)
+            end = existing.index(marker_end) + len(marker_end)
             before = existing[:start].rstrip("\n")
             after = existing[end:].lstrip("\n")
             parts = [before, block.strip(), after]
@@ -259,13 +320,16 @@ def _append_with_markers(path: Path, content: str, dry_run: bool) -> None:
     print(f"  Appended CodeRLM section to {path}")
 
 
-def _remove_markers(path: Path, dry_run: bool) -> None:
+def _remove_markers(path: Path, dry_run: bool, marker: str) -> None:
+    marker_start = _append_marker_start(marker)
+    marker_end = _append_marker_end(marker)
+
     if not path.exists():
         print(f"  Already absent: {path}")
         return
 
     content = path.read_text()
-    if CODEX_MARKER_START not in content:
+    if marker_start not in content:
         print(f"  No CodeRLM section in {path}")
         return
 
@@ -273,8 +337,8 @@ def _remove_markers(path: Path, dry_run: bool) -> None:
         print(f"  [dry-run] remove marked section from {path}")
         return
 
-    start = content.index(CODEX_MARKER_START)
-    end = content.index(CODEX_MARKER_END) + len(CODEX_MARKER_END)
+    start = content.index(marker_start)
+    end = content.index(marker_end) + len(marker_end)
     before = content[:start].rstrip("\n")
     after = content[end:].lstrip("\n")
     updated = before + ("\n\n" + after if after else "") + "\n" if before else after
@@ -293,19 +357,29 @@ def _remove_file(path: Path, dry_run: bool) -> None:
     print(f"  Removed {path}")
 
 
-def _remove_dir_if_empty(path: Path, dry_run: bool) -> None:
+def _remove_dir_if_empty(path: Path, dry_run: bool) -> bool:
     if not path.exists() or not path.is_dir():
-        return
+        return False
     try:
         if any(path.iterdir()):
-            return
+            return False
     except PermissionError:
-        return
+        return False
     if dry_run:
         print(f"  [dry-run] rmdir {path}")
-        return
+        return True
     path.rmdir()
     print(f"  Removed empty directory {path}")
+    return True
+
+
+def _remove_empty_parents(path: Path, stop: Path, dry_run: bool) -> None:
+    current = path
+    while current != stop and stop in current.parents:
+        removed = _remove_dir_if_empty(current, dry_run)
+        if not removed:
+            return
+        current = current.parent
 
 
 # -- CLI --

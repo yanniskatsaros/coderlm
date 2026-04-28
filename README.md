@@ -90,7 +90,7 @@ Generate for your platform:
 
 ```bash
 coderlm --platform cursor
-coderlm --platform pi             # generate AGENTS.md + .pi/coderlm CLI for Pi
+coderlm --platform pi             # generate AGENTS.md, .pi skill/prompt, and CLI for Pi
 coderlm --list                    # see all supported platforms
 ```
 
@@ -106,7 +106,7 @@ Or from a cloned repo:
 python3 plugin/generate.py --platform cursor
 ```
 
-Use `--list` to see all platforms, `--dry-run` to preview, `--clean` to remove generated files, and `--platform all` for everything.
+Use `--list` to see all platforms, `--dry-run` to preview, `--clean` to remove generated files, and `--platform all` for everything. Pi generation creates `AGENTS.md`, `.pi/skills/coderlm/`, `.pi/prompts/coderlm.md`, and `.pi/coderlm/coderlm_cli.py`, giving Pi both `/skill:coderlm` and `/coderlm` entrypoints.
 
 ### 3. Use the CLI
 
