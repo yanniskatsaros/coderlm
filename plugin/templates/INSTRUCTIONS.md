@@ -29,34 +29,34 @@ Do not scan files looking for relevant code. Work the way an engineer traces thr
 
 ## CLI Reference
 
-All commands go through the wrapper script:
+All commands go through the wrapper script. Set `CODERLM_STATE_DIR` on every invocation so session state stays in `{{STATE_DIR}}` for this platform:
 
 ```bash
-python3 {{CLI_PATH}} <command> [args]
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} <command> [args]
 ```
 
 ### Setup
 
 ```bash
-python3 {{CLI_PATH}} init                    # Create session, index the project
-python3 {{CLI_PATH}} structure --depth 2     # File tree with language breakdown
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} init                    # Create session, index the project
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} structure --depth 2     # File tree with language breakdown
 ```
 
 ### Finding Code
 
 ```bash
-python3 {{CLI_PATH}} search "symbol_name" --limit 20     # Find symbols by name (index lookup)
-python3 {{CLI_PATH}} symbols --kind function --file path  # List all functions in a file
-python3 {{CLI_PATH}} grep "pattern" --max-matches 20      # Scope-aware pattern search
-python3 {{CLI_PATH}} grep "pattern" --scope code           # Skip matches in comments/strings
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} search "symbol_name" --limit 20     # Find symbols by name (index lookup)
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} symbols --kind function --file path  # List all functions in a file
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} grep "pattern" --max-matches 20      # Scope-aware pattern search
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} grep "pattern" --scope code           # Skip matches in comments/strings
 ```
 
 ### Retrieving Exact Code
 
 ```bash
-python3 {{CLI_PATH}} impl function_name --file path        # Full function body (tree-sitter extracted)
-python3 {{CLI_PATH}} peek path --start N --end M           # Exact line range
-python3 {{CLI_PATH}} variables function_name --file path   # Local variables inside a function
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} impl function_name --file path        # Full function body (tree-sitter extracted)
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} peek path --start N --end M           # Exact line range
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} variables function_name --file path   # Local variables inside a function
 ```
 
 **Prefer `impl` and `peek` over reading entire files.** They return exactly the code you need — a single function from a 1000-line file, a specific line range — without loading irrelevant code into context.
@@ -64,8 +64,8 @@ python3 {{CLI_PATH}} variables function_name --file path   # Local variables ins
 ### Tracing Connections
 
 ```bash
-python3 {{CLI_PATH}} callers function_name --file path     # Every call site: file, line, calling code
-python3 {{CLI_PATH}} tests function_name --file path       # Tests referencing this symbol
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} callers function_name --file path     # Every call site: file, line, calling code
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} tests function_name --file path       # Tests referencing this symbol
 ```
 
 These search the entire indexed codebase, not just files you've already seen.
@@ -73,11 +73,11 @@ These search the entire indexed codebase, not just files you've already seen.
 ### Annotating
 
 ```bash
-python3 {{CLI_PATH}} define-file src/server/mod.rs "HTTP routing and handler dispatch"
-python3 {{CLI_PATH}} define-symbol handle_request --file src/server/mod.rs "Routes requests by method+path"
-python3 {{CLI_PATH}} mark tests/integration.rs test
-python3 {{CLI_PATH}} save-annotations                      # Persist to disk
-python3 {{CLI_PATH}} load-annotations                      # Reload from disk
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} define-file src/server/mod.rs "HTTP routing and handler dispatch"
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} define-symbol handle_request --file src/server/mod.rs "Routes requests by method+path"
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} mark tests/integration.rs test
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} save-annotations                      # Persist to disk
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} load-annotations                      # Reload from disk
 ```
 
 Annotations persist across queries within a session. Use `save-annotations` to persist across sessions.
@@ -85,7 +85,7 @@ Annotations persist across queries within a session. Use `save-annotations` to p
 ### Cleanup
 
 ```bash
-python3 {{CLI_PATH}} cleanup                               # End session
+CODERLM_STATE_DIR={{STATE_DIR}} python3 {{CLI_PATH}} cleanup                               # End session
 ```
 
 ## Workflow

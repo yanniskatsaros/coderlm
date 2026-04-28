@@ -96,6 +96,13 @@ PLATFORMS: dict[str, Platform] = {
         state_dir=".codex/coderlm/state",
         format="append",
     ),
+    "pi": Platform(
+        name="Pi",
+        instruction_path="AGENTS.md",
+        cli_path=".pi/coderlm/coderlm_cli.py",
+        state_dir=".pi/coderlm/state",
+        format="append",
+    ),
     "opencode": Platform(
         name="OpenCode",
         instruction_path=".opencode/instructions/coderlm.md",

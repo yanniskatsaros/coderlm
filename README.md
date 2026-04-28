@@ -78,7 +78,7 @@ claude plugin install coderlm
 
 After installation, the `/coderlm` skill is available in every session. The `SessionStart` hook auto-initializes and the `UserPromptSubmit` hook guides Claude to use indexed lookups.
 
-#### Other AI Platforms (Cursor, Windsurf, Copilot, Gemini, Codex, etc.)
+#### Other AI Platforms (Cursor, Windsurf, Copilot, Gemini, Codex, Pi, etc.)
 
 Install the generator:
 
@@ -90,6 +90,7 @@ Generate for your platform:
 
 ```bash
 coderlm --platform cursor
+coderlm --platform pi             # generate AGENTS.md + .pi/coderlm CLI for Pi
 coderlm --list                    # see all supported platforms
 ```
 
@@ -130,6 +131,7 @@ claude plugin update coderlm
 # Other platforms — pull and regenerate
 git pull
 python3 plugin/generate.py --platform cursor
+python3 plugin/generate.py --platform pi
 ```
 
 Rebuild the server after any update:
